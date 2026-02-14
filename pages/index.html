@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
+</head>
+<body>
+    <h1 style="text-align: center">Šah (Chess/Schach)</h1>
+    <div style="display: flex; justify-content: center; align-items: flex-start; gap: 24px;">
+        <div id="myBoard" style="width: 800px;"></div>
+
+        <div id="controlPanel">
+            <h3>Controls</h3>
+
+            <button id="flipBoardBtn">Flip Board</button>
+
+            <div class="control-group">
+                <label for="botStrength">Bot Strength</label>
+                <input type="range" id="botStrength" min="1" max="10" value="5">
+                <span id="botStrengthValue">5</span>
+            </div>
+
+            <button id="resetGameBtn" class="secondary">Reset Game</button>
+            <button id="whiteBtn" style="background-color: white; color: black">Play as White</button>
+            <button id="blackBtn" style="background-color: black; color: white">Play as Black</button>
+            <div id="pgn">
+                
+            </div>
+        </div>
+    </div>
+
+    
+</body>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js" integrity="sha384-8Vi8VHwn3vjQ9eUHUxex3JSN/NFqUg3QbPyX8kWyb93+8AC/pPWTzj+nHtbC5bxD" crossorigin="anonymous"></script>
+    <script src="script.js"></script>
+</html>
