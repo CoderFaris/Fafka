@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js';
+import { computeHash } from "./zobrist.js";
 
 const WHITE = 'w';
 const BLACK = 'b';
@@ -206,10 +206,12 @@ function staticEvaluation(board) {
     return total_eval;
 }
 
-function getOrderedMoves(board) {
+function getOrderedMoves(board, depth) {
     let endgame = checkEndGame(board);
 
     let moves = board.moves({ verbose: true });
+    
+    if(depth >= 4) return moves;
 
     moves.sort((a, b)=>{
         return moveValue(board, b, endgame) - moveValue(board, a, endgame);
@@ -218,6 +220,8 @@ function getOrderedMoves(board) {
     return moves;
 }
 
+// transposition table
+const TT = new Map();
 
 function minimax(board, depth, alpha, beta, maximizing_player) {
 
@@ -231,30 +235,49 @@ function minimax(board, depth, alpha, beta, maximizing_player) {
         return staticEvaluation(board);
     }
 
-
-    if (maximizing_player) {
-        let value = -Infinity;
-        for(let move of getOrderedMoves(board)) {
-            board.move(move);
-            value = Math.max(value, minimax(board, depth-1, alpha, beta, false));
-            board.undo();
-            alpha = Math.max(alpha, value);
-            if (beta <= alpha)
-                return value;
-        }
-        return value;
-    } else {
-        let value = Infinity;
-        for(let move of getOrderedMoves(board)) {
-            board.move(move);
-            value = Math.min(value, minimax(board, depth-1, alpha, beta, true));
-            board.undo();
-            beta = Math.min(beta, value);
-            if(beta <= alpha)
-                return value;
-        }
-        return value;
+    const key = board.hash; 
+    const entry = TT.get(key);
+    if(entry && entry.depth >= depth) {
+        if(entry.flag === "EXACT") return entry.value;
+        if(entry.flag === "LOWER") alpha = Math.max(alpha, entry.value);
+        if(entry.flag === "UPPER") beta = Math.min(beta, entry.value);
+        if(alpha >= beta) return entry.value;
     }
+
+    let bestValue = maximizing_player ? -Infinity : Infinity;
+    const alphaOrig = alpha;
+    const betaOrig = beta;
+
+    for(const move of getOrderedMoves(board, depth)) {
+        board.move(move);
+        let oldHash = board.hash;
+        board.hash = computeHash(board);
+
+        const score = minimax(board, depth-1, alpha, beta, !maximizing_player);
+        board.undo();
+
+        board.hash = oldHash;
+
+        if(maximizing_player) {
+            bestValue = Math.max(bestValue, score);
+            alpha = Math.max(alpha, bestValue);
+        } else {
+            bestValue = Math.min(bestValue, score);
+            beta = Math.min(beta, bestValue);
+        }
+
+        if(alpha >= beta) break;
+    }
+
+    let flag = "EXACT";
+    if(bestValue <= alphaOrig) flag = "UPPER";
+    else if(bestValue >= betaOrig) flag = "LOWER";
+
+    TT.set(key, {value: bestValue, depth, flag});
+
+    return bestValue;
+
+    
 }
 
 
@@ -298,11 +321,11 @@ function checkEndGame(board) {
 
 }
 
-export function findBestMove(board, depth, maximizing_player) {
+function findBestMoveAtDepth(board, depth, maximizing_player) {
     let bestMove = null;
     let bestValue = -Infinity;
 
-    for(let move of getOrderedMoves(board)) {
+    for(let move of getOrderedMoves(board, depth)) {
         board.move(move);
 
         let value = minimax(board, depth-1, -Infinity, Infinity, !maximizing_player);
@@ -318,3 +341,19 @@ export function findBestMove(board, depth, maximizing_player) {
 
     return bestMove;
 }
+
+export function findBestMove(board, maxDepth, maximizing_player) {
+
+    // clearing transposition table between moves
+    TT.clear();
+
+    let bestMove = null;
+
+    for(let depth=1; depth <= maxDepth; depth++) {
+        bestMove = findBestMoveAtDepth(board, depth, maximizing_player);
+    }
+
+    return bestMove;
+}
+
+

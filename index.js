@@ -3,6 +3,9 @@ import cors from 'cors';
 import { Chess } from 'chess.js';
 import { parse } from 'pgn-parser';
 import { findBestMove } from './algorithm.js';
+import { computeHash, initZobrist } from './zobrist.js';
+
+initZobrist();
 
 const WHITE = 'w';
 const BLACK = 'b';
@@ -16,6 +19,7 @@ let chess = new Chess();
 
 // state vars
 let isCheckmate = false;
+let isFirst = true;
 
 app.get('/', (req, res)=>{
     res.send('Hello World with ES6');
@@ -54,6 +58,10 @@ app.post('/validate', (req, res)=>{
 })
 
 app.get('/getaimove', (req, res)=>{
+    if(isFirst) {
+        chess.hash = computeHash(chess);
+        isFirst = false;
+    }
     // const moves = chess.moves();
     // const move = moves[Math.floor(Math.random() * moves.length)];
     // chess.move(move);
