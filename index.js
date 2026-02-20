@@ -62,11 +62,14 @@ app.get('/getaimove', (req, res)=>{
         chess.hash = computeHash(chess);
         isFirst = false;
     }
+    let start = performance.now();
     // const moves = chess.moves();
     // const move = moves[Math.floor(Math.random() * moves.length)];
     // chess.move(move);
     let move = findBestMove(chess, 5, chess.turn() == WHITE);
     chess.move(move);
+    let end = performance.now();
+    console.log('AI time to move: ', (end-start)/1000);
     // check for mate
     if(chess.isCheckmate()) {
         isCheckmate = true;

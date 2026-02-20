@@ -58,8 +58,10 @@ function onDrop(source, target, piece) {
       .then(res => res.json())
       .then(botData => {
         currFen = botData.fen;
+        console.log(botData);
         if(humanColor == WHITE) {
           $pgn.html(renderMoves(botData.pgn[0].moves)); // write the bot move down in html
+          console.log(botData.pgn[0].moves);
         } 
         board.position(currFen);
         if (data.isCheckmate) {

@@ -1,9 +1,17 @@
 import { computeHash } from "./zobrist.js";
+import { logStats } from "./logger.js";
 
 const WHITE = 'w';
 const BLACK = 'b';
 
-let debug = {};
+let debug = {
+    startTime: 0,
+    nodes: 0,
+    qNodes: 0,
+    ttHits: 0,
+    cutoffs: 0,
+    maxDepth: 0
+};
 
 let piece_vals = {
     'p' : 100,
@@ -206,12 +214,41 @@ function staticEvaluation(board) {
     return total_eval;
 }
 
+
+// the horizon effect
+function quiescence(board, alpha, beta) {
+    debug.qNodes++;
+
+    let standPat = staticEvaluation(board);
+
+    if (standPat >= beta) return standPat;
+    if (standPat > alpha) alpha = standPat;
+
+    const moves = board.moves({ verbose: true })
+        .filter(m => m.isCapture());
+
+    // TODO: sort by MVV-LVA
+    for (const move of moves) {
+        board.move(move);
+        const score = -quiescence(board, -beta, -alpha);
+        board.undo();
+
+        if (score >= beta) return score;
+        if(score > standPat) standPat = score;
+        if (score > alpha) alpha = score;
+    }
+
+    return standPat;
+}
+
+
+
 function getOrderedMoves(board, depth) {
     let endgame = checkEndGame(board);
 
-    let moves = board.moves({ verbose: true });
+    let moves = board.moves({verbose: true});
     
-    if(depth >= 4) return moves;
+    // if(depth >= 4) return moves;
 
     moves.sort((a, b)=>{
         return moveValue(board, b, endgame) - moveValue(board, a, endgame);
@@ -225,19 +262,30 @@ const TT = new Map();
 
 function minimax(board, depth, alpha, beta, maximizing_player) {
 
+    debug.nodes++;
+
+    debug.maxDepth = Math.max(debug.maxDepth, depth);
+
     if (board.isCheckmate()) {
         return maximizing_player ? -1000000000 : 1000000000;
     } else if (board.isGameOver()) {
         return 0;
     }
 
+    if(board.isThreefoldRepetition()) {
+        return 0;
+    }
+
     if(depth == 0) {
         return staticEvaluation(board);
+        // return quiescence(board, alpha, beta);
     }
 
     const key = board.hash; 
     const entry = TT.get(key);
     if(entry && entry.depth >= depth) {
+        debug.ttHits++;
+
         if(entry.flag === "EXACT") return entry.value;
         if(entry.flag === "LOWER") alpha = Math.max(alpha, entry.value);
         if(entry.flag === "UPPER") beta = Math.min(beta, entry.value);
@@ -266,7 +314,10 @@ function minimax(board, depth, alpha, beta, maximizing_player) {
             beta = Math.min(beta, bestValue);
         }
 
-        if(alpha >= beta) break;
+        if(alpha >= beta) {
+            debug.cutoffs++;
+            break;
+        } 
     }
 
     let flag = "EXACT";
@@ -286,8 +337,6 @@ function checkEndGame(board) {
         according to Michniewski
         both sides have no queens or a side that has a queen has no other pieces or one minorpiece maximum (bishop or knight)
     */
-//    console.log('endgame obj: ', board);
-//    console.log('in endgame: ', typeof board);
    let queens = 0;
    let minorChessPieces = 0;
 
@@ -321,9 +370,15 @@ function checkEndGame(board) {
 
 }
 
-function findBestMoveAtDepth(board, depth, maximizing_player) {
+function findBestMoveAtDepth(board, depth, maximizing_player, pvMove) {
     let bestMove = null;
     let bestValue = -Infinity;
+
+    let moves = getOrderedMoves(board, depth);
+
+    if (pvMove) {
+        moves = [pvMove, ...moves.filter(m => m !== pvMove)];
+    }
 
     for(let move of getOrderedMoves(board, depth)) {
         board.move(move);
@@ -347,11 +402,24 @@ export function findBestMove(board, maxDepth, maximizing_player) {
     // clearing transposition table between moves
     TT.clear();
 
+    debug.nodes = 0;
+    debug.qNodes = 0;
+    debug.ttHits = 0;
+    debug.cutoffs = 0;
+    debug.maxDepth = 0;
+    debug.startTime = Date.now();
+
     let bestMove = null;
 
     for(let depth=1; depth <= maxDepth; depth++) {
-        bestMove = findBestMoveAtDepth(board, depth, maximizing_player);
+        bestMove = findBestMoveAtDepth(board, depth, maximizing_player, bestMove);
     }
+
+    const san = bestMove.san;
+
+    
+    logStats(debug, `Move played: ${san}`);
+    
 
     return bestMove;
 }
